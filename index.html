@@ -73,7 +73,56 @@
 		</div>
 
 		<h2>Part 2: Bounding Volume Hierarchy</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<h3>BVH Construction</h3>
+		<p>I implemented BVH construction recursively in <code>construct_bvh()</code>. I first calculated a bounding box containing all the primitives in the current range, along with a separate bounding box containing their centroids. If the number of primitives was less than or equal to <code>max_leaf_size</code>, I created a leaf node and stored the start and end iterators.</p>
+		<p>Otherwise, I split the primitives along the axis with the largest spread of centroids. I chose the midpoint of this axis as the splitting point and used <code>std::partition()</code> to separate the primitives based on their centroids. If all primitives ended up on one side, I used a fallback split to avoid infinite recursion. I then recursively constructed the left and right child nodes.</p>
+		<p>For BVH traversal, I used ray-box intersection tests to skip nodes whose bounding boxes were not intersected by the ray. At leaf nodes, I tested the ray against the contained primitives. This avoids checking every triangle in the scene for each ray.</p>
+		<h3>Normal Shading Results</h3>
+		<div style="display: flex; justify-content: center; gap: 20px;">
+			<figure style="margin: 0; width: 48%;">
+				<img src="assets/maxplanck.png" style="width: 100%;"
+					alt="Max Planck normal shading"/>
+				<figcaption>
+				maxplanck.dae rendered with BVH acceleration.
+				</figcaption>
+			</figure>
+			
+			<figure style="margin: 0; width: 48%;">
+				<img src="assets/CBlucy.png" style="width: 100%;"
+					alt="Lucy normal shading"/>
+				<figcaption>
+				CBlucy.dae rendered with BVH acceleration.
+				</figcaption>
+			</figure>
+		</div>
+		<h3>Rendering Time Comparison</h3>
+		<table style="width: 100%; text-align: center; border-collapse: collapse;" border="1" cellpadding="8">
+			<tr>
+				<th>Scene</th>
+				<th>Without BVH</th>
+				<th>With BVH</th>
+				<th>Speedup</th>
+			</tr>
+			<tr>
+				<td>cow.dae</td>
+				<td>9.001s</td>
+				<td>0.648s</td>
+				<td>13.9x</td>
+			</tr>
+			<tr>
+				<td>CBbunny.dae</td>
+				<td>69.99s</td>
+				<td>0.228s</td>
+				<td>307.0x</td>
+			</tr>
+			<tr>
+				<td>CBdragon.dae</td>
+				<td>220.10s</td>
+				<td>0.661s</td>
+				<td>333.0x</td>
+			</tr>
+		</table>
+		<p>I compared rendering times for the cow, bunny, and dragon scenes at 800x600 resolution using 8 threads. With BVH acceleration, the cow rendered about 14 times faster, while the bunny and dragon rendered over 300 times faster. By checking the bounding boxes first, the BVH allowed rays to skip groups of triangles that they could not intersect, greatly reducing the number of intersection tests.</p>	
 
 		<h2>Part 3: Direct Illumination</h2>
 		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
