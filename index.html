@@ -123,9 +123,57 @@
 			</tr>
 		</table>
 		<p>I compared rendering times for the cow, bunny, and dragon scenes at 800x600 resolution using 8 threads. With BVH acceleration, the cow rendered about 14 times faster, while the bunny and dragon rendered over 300 times faster. By checking the bounding boxes first, the BVH allowed rays to skip groups of triangles that they could not intersect, greatly reducing the number of intersection tests.</p>	
-
+		
 		<h2>Part 3: Direct Illumination</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<h3>Direct Lighting Implementation</h3>
+		<p>I first implemented the Lambertian diffuse BSDF by returning the surface's reflectance divided by pi. For zero-bounce illumination, I returned the emission of the intersected surface using <code>get_emission()</code>. I then implemented two methods for estimating direct illumination: uniform hemisphere sampling and importance sampling of lights.</p>
+		<h3>Uniform Hemisphere Sampling</h3>
+		<p>In <code>estimate_direct_lighting_hemisphere()</code>, I randomly sampled incoming directions over the hemisphere above the intersection point. I constructed a local coordinate frame using the surface normal, then transformed each sampled direction into world space to trace a ray through the BVH. I set <code>min_t</code> to <code>EPS_F</code> to prevent the ray from intersecting its starting surface.</p>
+		<p>For each ray that intersected a surface, I retrieved its emitted radiance using <code>get_emission()</code>. I then evaluated the BSDF using the incoming and outgoing directions in local space and multiplied by the incoming radiance and cosine term. Since directions were sampled uniformly, I divided by the PDF of <code>1 / (2 * PI)</code>. Finally, I averaged the contributions over all samples to estimate the outgoing radiance.</p>
+		<h3>Importance Sampling of Lights</h3>
+		<p>In <code>estimate_direct_lighting_importance()</code>, I sampled each light source directly using <code>sample_L()</code>, which returned the incoming radiance, direction toward the light, distance, and PDF. I used one sample for point lights and <code>ns_area_light</code> samples for area lights. I transformed the incoming direction into local space to evaluate the BSDF and cosine term, skipping directions below the surface.</p>
+		<p>I also cast a shadow ray toward each sampled light, with <code>min_t = EPS_F</code> and <code>max_t = distToLight - EPS_F</code>. If the ray hit another object before reaching the light, I ignored that sample. Otherwise, I multiplied the BSDF by the incoming radiance and cosine term, divided by the PDF, and averaged the contributions for each light. I used <code>direct_hemisphere_sample</code> to switch between the two methods in <code>one_bounce_radiance()</code>.</p>
+		<h3>Uniform Hemisphere vs. Importance Sampling</h3>
+
+		<div style="display: flex; justify-content: center; gap: 20px;">
+		<figure style="margin: 0; width: 48%;">
+			<img src="assets/bunny_hemisphere.png" style="width: 100%;"/>
+			<figcaption>
+			Uniform hemisphere sampling (16 samples/pixel, 8 light samples).
+			</figcaption>
+		</figure>
+		<figure style="margin: 0; width: 48%;">
+			<img src="assets/bunny_importance.png" style="width: 100%;"/>
+			<figcaption>
+			Importance sampling (16 samples/pixel, 8 light samples).
+			</figcaption>
+		</figure>
+		</div>
+
+		<p>Both methods produce direct lighting and shadows, but uniform hemisphere sampling is much noisier. Since directions are chosen randomly over the entire hemisphere, many rays miss the light source and contribute nothing, while the few that hit it contribute larger values. Importance sampling instead chooses directions toward the lights, so more samples contribute to the estimate. Although some rays are still blocked by other objects, importance sampling produces a smoother image with the same sampling settings.</p>
+		<h3>Soft Shadow Noise Comparison</h3>
+		<p>I rendered <code>CBbunny.dae</code> using importance sampling with one sample per pixel and varied the number of light samples from 1 to 64 to compare the noise in soft shadows.</p>
+
+		<div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 20px;">
+		<figure style="margin: 0; width: 46%;">
+			<img src="assets/bunny_L1.png" style="width: 100%;"/>
+			<figcaption>1 light sample</figcaption>
+		</figure>
+		<figure style="margin: 0; width: 46%;">
+			<img src="assets/bunny_L4.png" style="width: 100%;"/>
+			<figcaption>4 light samples</figcaption>
+		</figure>
+		<figure style="margin: 0; width: 46%;">
+			<img src="assets/bunny_L16.png" style="width: 100%;"/>
+			<figcaption>16 light samples</figcaption>
+		</figure>
+		<figure style="margin: 0; width: 46%;">
+			<img src="assets/bunny_L64.png" style="width: 100%;"/>
+			<figcaption>64 light samples</figcaption>
+		</figure>
+		</div>
+
+		<p>With 1 light sample, the soft shadows are very noisy because each pixel estimates the light's visibility from a single sampled point. At 4 samples, the noise begins to decrease, although the shadow boundaries are still grainy. With 16 samples, the shadows become more consistent, and at 64 samples, the transitions between illuminated and shadowed regions appear much smoother. Increasing the number of light samples reduces variance by averaging more visibility estimates, although it also increases rendering time.</p>
 
 		<h2>Part 4: Global Illumination</h2>
 		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
@@ -135,17 +183,6 @@
 
 		<h2>(Optional) Part 6: Extra Credit Opportunities</h2>
 		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-		
-		<h2>Additional Notes (please remove)</h2>
-		<ul>
-			<li>You can also add code if you'd like as so: <code>code code code</code></li>
-			<li>If you'd like to add math equations, 
-				<ul>
-					<li>You can write inline equations like so: \( a^2 + b^2 = c^2 \)</li>
-					<li>You can write display equations like so: \[ a^2 + b^2 = c^2 \]</li>
-				</ul>
-			</li>
-		</ul>
 		</div>
 	</body>
 </html>
