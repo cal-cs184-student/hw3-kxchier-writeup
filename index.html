@@ -23,6 +23,33 @@
 			body {
 				font-family: 'Inter', sans-serif;
 			}
+
+			.render-grid {
+			display: grid;
+			grid-template-columns: repeat(3, 1fr);
+			gap: 20px;
+			margin: 20px 0 30px;
+			}
+
+			.render-grid figure {
+			margin: 0;
+			text-align: center;
+			}
+
+			.render-grid img {
+			width: 100%;
+			}
+
+			.render-grid figcaption {
+			margin-top: 6px;
+			font-size: 14px;
+			}
+
+			@media (max-width: 700px) {
+			.render-grid {
+				grid-template-columns: repeat(2, 1fr);
+			}
+			}
 		</style>
 	</head>
 	<body>
@@ -176,12 +203,82 @@
 		<p>With 1 light sample, the soft shadows are very noisy because each pixel estimates the light's visibility from a single sampled point. At 4 samples, the noise begins to decrease, although the shadow boundaries are still grainy. With 16 samples, the shadows become more consistent, and at 64 samples, the transitions between illuminated and shadowed regions appear much smoother. Increasing the number of light samples reduces variance by averaging more visibility estimates, although it also increases rendering time.</p>
 
 		<h2>Part 4: Global Illumination</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<h3>Indirect Lighting Implementation</h3>
+		<p>I implemented indirect illumination in <code>at_least_one_bounce_radiance()</code> by recursively tracing rays between surfaces. At each intersection, I first calculated the direct illumination using <code>one_bounce_radiance()</code>. I then used <code>BSDF::sample_f()</code> to choose one new incoming direction from a cosine-weighted hemisphere, along with its PDF and BSDF value.</p>
+		<p>I transformed the sampled direction from local to world space and constructed a new ray starting at the intersection point, with <code>min_t</code> set to <code>EPS_F</code>. I also decreased the ray's depth by one. If the new ray intersected another surface, I recursively calculated the radiance at that point and multiplied it by the BSDF, cosine term, and inverse PDF. This lets light reflected from other surfaces contribute to the original intersection. The recursion stops when the ray reaches its depth limit or fails to intersect another surface.</p>
+		<p>I also implemented Russian Roulette to randomly terminate longer paths. After the first indirect bounce, each path has a 65% chance of continuing. For paths that continue, I divide their contribution by 0.65 to compensate for the terminated paths. Finally, I added the recursive radiance to the zero-bounce emission to calculate the total global illumination.</p>
+		<h3>Global Illumination Results</h3>
+		<div style="display: flex; gap: 20px; justify-content: center;">
+			<figure style="width: 48%; margin: 0;">
+				<img src="assets/bunny_global_1024.png" style="width: 100%;"/>
+				<figcaption>CBbunny.dae with global illumination, 1024 samples per pixel.</figcaption>
+			</figure>
+			<figure style="width: 48%; margin: 0;">
+				<img src="assets/spheres_global_1024.png" style="width: 100%;"/>
+				<figcaption>CBspheres_lambertian.dae with global illumination, 1024 samples per pixel.</figcaption>
+			</figure>
+		</div>
+		<p>With global illumination, light reaches areas that are not directly illuminated by the ceiling light. The reflected light also carries the colors of surrounding surfaces, producing color bleeding between the Cornell box walls, floor, and objects.</p>
+		<h3>Direct vs. Indirect Illumination</h3>
+		<div style="display: flex; gap: 20px; justify-content: center;">
+			<figure style="width: 48%; margin: 0;">
+				<img src="assets/bunny_direct_only.png" style="width: 100%;"/>
+				<figcaption>Direct illumination only, 1024 samples per pixel.</figcaption>
+			</figure>
+			<figure style="width: 48%; margin: 0;">
+				<img src="assets/bunny_indirect_only.png" style="width: 100%;"/>
+				<figcaption>Indirect illumination only, 1024 samples per pixel.</figcaption>
+			</figure>
+		</div>
+		<p>I rendered the bunny with direct and indirect illumination separately to compare their contributions. Direct illumination accounts for light traveling straight from the ceiling light to a surface, producing the main shadding and shadows. Indirect illumination is generally dimmer, but fills in areas that direct light cannot reach and introduces color bleeding from nearby surfaces. Combining the two gives the scene more natural lighting, particularly around the bunny and the corners of the Cornell box.</p>
+		<h3>Individual Bounces</h3>
+		<p>I rendered CBbunny.dae with <code>isAccumBounces = false</code> and <code>max_ray_depth</code> ranging from 0 to 5, using 1024 samples per pixel. Russian Roulette was disabled for these fixed-depth comparisons.</p>
+		<div class="render-grid">
+			<figure><img src="assets/bunny_bounce0.png"/><figcaption>m = 0</figcaption></figure>
+			<figure><img src="assets/bunny_bounce1.png"/><figcaption>m = 1</figcaption></figure>
+			<figure><img src="assets/bunny_bounce2.png"/><figcaption>m = 2</figcaption></figure>
+			<figure><img src="assets/bunny_bounce3.png"/><figcaption>m = 3</figcaption></figure>
+			<figure><img src="assets/bunny_bounce4.png"/><figcaption>m = 4</figcaption></figure>
+			<figure><img src="assets/bunny_bounce5.png"/><figcaption>m = 5</figcaption></figure>
+		</div>
+		<p>At m = 0, only the light source is visible, while m = 1 shows the contribution from direct lighting. The second bounce shows light that has reflected off another surface before reaching the camera-visible surface, which helps illuminate darker areas and introduces color bleeding. The third bounce adds further reflected light, although its contribution is weaker. Higher bounces become progressively dimmer as less energy is reflected at each surface.</p>
+		<p>These additional bounces make the scene more realistic than basic rasterization with only direct lighting. In particular, indirect light can illuminate surfaces that are not directly visible to the light source, without having to approximate these effects using additional lights or ambient shading.</p>
+		<h3>Accumulated Bounces</h3>
+		<p>I repeated the renders with <code>isAccumBounces = true</code> so each image includes the contributions from all bounce depths up to the specified maximum.</p>
+		<div class="render-grid">
+			<figure><img src="assets/bunny_accum0.png"/><figcaption>m = 0</figcaption></figure>
+			<figure><img src="assets/bunny_accum1.png"/><figcaption>m = 1</figcaption></figure>
+			<figure><img src="assets/bunny_accum2.png"/><figcaption>m = 2</figcaption></figure>
+			<figure><img src="assets/bunny_accum3.png"/><figcaption>m = 3</figcaption></figure>
+			<figure><img src="assets/bunny_accum4.png"/><figcaption>m = 4</figcaption></figure>
+			<figure><img src="assets/bunny_accum5.png"/><figcaption>m = 5</figcaption></figure>
+		</div>
+		<p>Unlike the individual-bounce renders, the accumulated images become more complete as the maximum depth increases. The first few bounces make the largest difference, brightening the scene and adding indirect illumination. By m = 4 and m = 5, the changes are smaller because higher-order reflections contribute less radiance.</p>
+		<h3>Russian Roulette</h3>
+		<p>I rendered the bunny with Russian Roulette enabled and maximum ray depths of 0, 1, 2, 3, 4, and 100, using 1024 samples per pixel.</p>
+		<div class="render-grid">
+			<figure><img src="assets/bunny_rr_m0.png"/><figcaption>m = 0</figcaption></figure>
+			<figure><img src="assets/bunny_rr_m1.png"/><figcaption>m = 1</figcaption></figure>
+			<figure><img src="assets/bunny_rr_m2.png"/><figcaption>m = 2</figcaption></figure>
+			<figure><img src="assets/bunny_rr_m3.png"/><figcaption>m = 3</figcaption></figure>
+			<figure><img src="assets/bunny_rr_m4.png"/><figcaption>m = 4</figcaption></figure>
+			<figure><img src="assets/bunny_rr_m100.png"/><figcaption>m = 100</figcaption></figure>
+		</div>
+		<p>Russian Roulette allows paths to terminate randomly rather than always tracing each bounce up to the maximum depth. By dividing surviving contributions by their continuation probability, the random termination does not systematically reduce the expected raidance. At m = 100, most paths still terminate much earlier, making it possible to estimate longer light paths without tracing every path to the full depth.</p>
+		<h3>Samples per Pixel</h3>
+		<p>Finally, I rendered CBbunny.dae with 1, 2, 4, 8, 16, 64, and 1024 samples per pixel, keeping the number of light samples at 4.</p>
+		<div class="render-grid">
+			<figure><img src="assets/bunny_samples1.png"/><figcaption>1 spp</figcaption></figure>
+			<figure><img src="assets/bunny_samples2.png"/><figcaption>2 spp</figcaption></figure>
+			<figure><img src="assets/bunny_samples4.png"/><figcaption>4 spp</figcaption></figure>
+			<figure><img src="assets/bunny_samples8.png"/><figcaption>8 spp</figcaption></figure>
+			<figure><img src="assets/bunny_samples16.png"/><figcaption>16 spp</figcaption></figure>
+			<figure><img src="assets/bunny_samples64.png"/><figcaption>64 spp</figcaption></figure>
+			<figure><img src="assets/bunny_samples1024.png"/><figcaption>1024 spp</figcaption></figure>
+		</div>
+		<p>At low sample counts, the renders contain noticeable noise, especially in darker areas and soft shadows. As the number of samples increases, the noise decreases and the indirect lighting becomes more consistent. At 1024 samples per pixel, the surfaces and shadows appear much smoother. Increasing the sample count does not change the underlying lighting calculation, but gives a more stable estimate by averaging more randomly sampled paths.</p>
 
 		<h2>Part 5: Adaptive Sampling</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-
-		<h2>(Optional) Part 6: Extra Credit Opportunities</h2>
 		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 		</div>
 	</body>
