@@ -279,7 +279,43 @@
 		<p>At low sample counts, the renders contain noticeable noise, especially in darker areas and soft shadows. As the number of samples increases, the noise decreases and the indirect lighting becomes more consistent. At 1024 samples per pixel, the surfaces and shadows appear much smoother. Increasing the sample count does not change the underlying lighting calculation, but gives a more stable estimate by averaging more randomly sampled paths.</p>
 
 		<h2>Part 5: Adaptive Sampling</h2>
-		Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+		<h3>Adaptive Sampling Implementation</h3>
+		<p>I implemented adaptive sampling in <code>raytrace_pixel()</code> to avoid taking the same number of samples for every pixel. Instead of always using <code>ns_aa</code> samples, I treated it as the maximum number and checked whether each pixel had converged after every <code>samplesPerBatch</code> samples.</p>
+		<p>For each ray sample, I calculated its illuminance using <code>radiance.illum()</code> and kept track of the sum of the illuminance values and their squares. I used these sums to calculate the mean and variance without storing every individual sample. After each batch, I calculated the confidence interval:</p>
+		<p>
+		\[
+		I = 1.96 \frac{\sigma}{\sqrt{n}}
+		\]
+		</p>
+		<p>If <code>I &lt;= maxTolerance * mean</code>, I stopped sampling that pixel early. Otherwise, I continued until the pixel converged or reached the maximum number of samples. I then averaged the radiance values using the actual number of samples taken and stored that count in <code>sampleCountBuffer</code>.</p>
+		<h3>Adaptive Sample Results</h3>
+		<p>I rendered CBbunny.dae and CBspheres_lambertian.dae with a maximum of 2048 samples per pixel, a batch size of 64, a tolerance of 0.05, one light sample, and a maximum ray depth of 5.</p>
+		<div style="display: flex; justify-content: center; gap: 20px;">
+			<figure style="margin: 0; width: 48%;">
+			  <img src="assets/bunny_adaptive_final.png"
+				   style="width: 100%;"/>
+			  <figcaption>CBbunny.dae: Final render</figcaption>
+			</figure>
+			<figure style="margin: 0; width: 48%;">
+			  <img src="assets/bunny_adaptive_final_rate.png"
+				   style="width: 100%;"/>
+			  <figcaption>CBbunny.dae: Sampling-rate visualization</figcaption>
+			</figure>
+		  </div>
+		  
+		  <div style="display: flex; justify-content: center; gap: 20px; margin-top: 20px;">
+			<figure style="margin: 0; width: 48%;">
+			  <img src="assets/spheres_adaptive_final.png"
+				   style="width: 100%;"/>
+			  <figcaption>CBspheres_lambertian.dae: Final render</figcaption>
+			</figure>
+			<figure style="margin: 0; width: 48%;">
+			  <img src="assets/spheres_adaptive_final_rate.png"
+				   style="width: 100%;"/>
+			  <figcaption>CBspheres_lambertian.dae: Sampling-rate visualization</figcaption>
+			</figure>
+		  </div>
+		  <p>In the sampling-rate visualizations, red regions indicate pixels that required more samples, while blue and and green regions indicate pixels that converged earlier. Areas with more variation in lighting, such as objects and their shadows, generally required more samples than relatively uniform surfaces. This allowed the renderer to concentrate samples in noisier regions rather than using the maximum sample count for every pixel.</p>
 		</div>
 	</body>
 </html>
