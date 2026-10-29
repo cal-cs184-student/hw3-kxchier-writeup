@@ -45,10 +45,11 @@
 			font-size: 14px;
 			}
 
-			@media (max-width: 700px) {
-			.render-grid {
-				grid-template-columns: repeat(2, 1fr);
-			}
+			@media print {
+				figure, .render-grid {
+					break-inside: avoid;
+					page-break-inside: avoid;
+				}
 			}
 		</style>
 	</head>
@@ -67,7 +68,7 @@
 		-->
 
 		<h2>Overview</h2>
-		<p>In this homework, I implemented a path trace that generates camera rays, finds intersections with triangles and spheres, and estimates lighting through Monte Carlo sampling. I first implemented ray generation and primitive intersections, and then built a BVH to speed up rendering. I added direct illumination using uniform hemisphere and importance sampling, and then added recursive global illumination and Russian Roulette. Finally, I implemented adaptive sampling to reduce unnecessary samples in pixels that had already converged.</p>
+		<p>In this homework, I implemented a path tracer that generates camera rays, finds intersections with triangles and spheres, and estimates lighting through Monte Carlo sampling. I first implemented ray generation and primitive intersections, and then built a BVH to speed up rendering. I added direct illumination using uniform hemisphere and importance sampling, and then added recursive global illumination and Russian Roulette. Finally, I implemented adaptive sampling to reduce unnecessary samples in pixels that had already converged.</p>
 		<p>I found it especially interesting to see the progression of the individual light bounces and which parts of the scene were illuminated by each one. Seeing how the second and third bounces contributed light to areas that were otherwise dark helped me better understand how indirect illumination builds up to produce the final image. :)</p>
 
 		<h2>Part 1: Ray Generation and Scene Intersection</h2>
